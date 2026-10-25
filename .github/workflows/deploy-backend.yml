@@ -1,0 +1,42 @@
+name: Deploy backend to Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend_files/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:   # allows a manual run from the Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the Hugging Face client
+        run: pip install "huggingface_hub>=0.34"
+
+      - name: Upload backend_files to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: Sutaneja/superkart-backend
+        run: |
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          space = os.environ["HF_SPACE_ID"]
+          # Create the Docker Space on the first run, reuse it afterwards
+          api.create_repo(space, repo_type="space", space_sdk="docker", exist_ok=True)
+          api.upload_folder(folder_path="backend_files", repo_id=space, repo_type="space",
+                            commit_message="Deploy from GitHub " + os.environ["GITHUB_SHA"][:7])
+          print("Deployed to https://huggingface.co/spaces/" + space)
+          EOF
